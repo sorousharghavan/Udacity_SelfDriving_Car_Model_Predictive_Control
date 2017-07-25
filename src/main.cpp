@@ -66,7 +66,9 @@ Eigen::VectorXd polyfit(Eigen::VectorXd xvals, Eigen::VectorXd yvals,
   return result;
 }
 
-//finds coefficients for a polynomial of order three with respect to car's relative coordinates
+//finds coefficients for a polynomial of order two with respect to car's relative coordinates
+//Order two was chosen to have a smoother ride.
+//Order three results in more of a spline and curvy path which works for low speeds but is not good for high speeds.
 Eigen::VectorXd calculateCoeffs(std::vector<double> ptsx, std::vector<double> ptsy, double px, double py, double psi){
   Eigen::VectorXd relative_x(ptsx.size());
   Eigen::VectorXd relative_y(ptsy.size());

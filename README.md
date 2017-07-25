@@ -1,5 +1,6 @@
 # CarND-Controls-MPC
-Self-Driving Car Engineer Nanodegree Program
+## Self-Driving Car Engineer Nanodegree Program
+## _By: Soroush Arghavan_
 
 ---
 
@@ -8,10 +9,53 @@ _Build instructions at the bottom_
 # Car is now able to reach 101 MPH!
 
 ## Lap Stats
-_Lap time: 31.4 s _
+_Lap time: 31.4 s_
 _Top speed: 101.06 MPH_
 
 ![Race Lap](./lap.gif)
+
+## The Model
+
+The model that is used to represent the vehicle takes into account the coordinates _x_ and _y_, the heading psi and velocity _v_. The actuators that are used to control the vehicle are steering angle and throttle. Steering angle is a value between -25 and 25 (scaled to [-1, 1] for the simulator) and the throttle lies within [-1, 1]. For each actuation parameter an error is defined as the deviation from the center (cte) and deviation from the heading (epsi) of the road. To update the values of the prediction for each step, each parameter at step _t+1_ is calculated based on the state of the vehicle at the current step _t_ as follows:
+
+```c++
+AD<double> f0 = coeffs[0] + coeffs[1] * x0 + coeffs[2] * CppAD::pow(x0, 2); //+ coeffs[3] * CppAD::pow(x0, 3);
+AD<double> psides0 = CppAD::atan(coeffs[1] + 2 * coeffs[2] * x0); //+ 3 * coeffs[3] * CppAD::pow(x0, 2));
+
+// Recall the equations for the model:
+// x_[t] = x[t-1] + v[t-1] * cos(psi[t-1]) * dt
+// y_[t] = y[t-1] + v[t-1] * sin(psi[t-1]) * dt
+// psi_[t] = psi[t-1] + v[t-1] / Lf * delta[t-1] * dt
+// v_[t] = v[t-1] + a[t-1] * dt
+// cte[t] = f(x[t-1]) - y[t-1] + v[t-1] * sin(epsi[t-1]) * dt
+// epsi[t] = psi[t] - psides[t-1] + v[t-1] * delta[t-1] / Lf * dt
+fg[1 + x_start + t] = x1 - (x0 + v0 * CppAD::cos(psi0) * dt);
+fg[1 + y_start + t] = y1 - (y0 + v0 * CppAD::sin(psi0) * dt);
+fg[1 + psi_start + t] = psi1 - (psi0 - v0 * delta / Lf * dt);
+fg[1 + v_start + t] = v1 - (v0 + a * dt);
+fg[1 + cte_start + t] =
+  cte1 - ((f0 - y0) + (v0 * CppAD::sin(epsi0) * dt));
+fg[1 + epsi_start + t] =
+  epsi1 - ((psi0 - psides0) - v0 * delta0 / Lf * dt);
+```
+
+The cost of the predictions are evaluated to allow the vehicle drive as smoothly and quickly as possible reaching a top speed of more than 101 MPH. To achieve this, certain considerations have been taken into account such as penalizing braking and defining an inverse cost relationship between vehicle speed and road curvature which can be found in MPC.cpp from line 119.
+
+## Timestep Length and Elapsed Duration (N & dt)
+
+A variety of timesteps and durations were chosen for testing. It was found that if _N * dt_ is too low (less than 0.5 second), the vehicle would overcompensate cte at low speeds and oscillate about the cte to instability. If _N * dt_ is too high, the curve would deviate from the road as the prediction period is too long at high speeds and would cause the vehicle to "miss" the turn. Furthermore, if N is too high, the computational power needed for each update would introduce a lag that makes the car unstable. Also, if N is too low, the MPC curve becomes too volatile for the car to be able to drive. If dt is too high, the actuation steps would become too slow for the vehicle to use. Also, if dt is too low, the model would try to overcompensate again at low velocities and stop the car from reaching stable speeds.
+
+For the purpose of having a stable race car around the track, a total prediction horizon of 0.84 second with 12 steps of length 0.07 second have been chosen. For a regular cruise speed of 40-60, other parameters such as 10 steps of 0.1 second proved to be most efficient. With said settings at cruise speed, the car is capable of finishing a lap without any braking at set speed.
+
+## Polynomial Fitting and MPC Preprocessing
+
+Second order polynomial fitting is chosen for the purpose of having a race car. Third order polynomials were proven to result in spline and curvy shapes in the fit and therefore adding unnecessary actuation resulting in a harsh ride. Second order polynomials result in smoother steering due to their profile and constant curvature. Furthermore, the curvature of the fit is also used for perfecting the cost function to define areas of the track in which the car should drive more cautiously.
+
+As for preprocessing, the state data from the vehicle is transformed into the vehicle coordinates before curve fitting. This results in _x_, _y_ and psi being zero and making computations much simpler.
+
+## Model Predictive Control with Latency
+
+In order to compensate for the latency of the data coming into the model, in the kinematics models, the actuation data are introduced into the model with a delay of one timestep. This can be found in lines 84-95 of MPC.cpp
 
 ## Dependencies
 

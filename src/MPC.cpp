@@ -116,13 +116,14 @@ class FG_eval {
       //Calculate cost
       unsigned int i = t - 1;
 
+      //defining cost for cte and epsi
       fg[0] += 200*CppAD::pow(vars[cte_start + i], 2);
       fg[0] += 500*CppAD::pow(vars[epsi_start + i], 2);
+
+      //adding cost to deviation from top speed to force the vehicle to reach full speed
       fg[0] += 100*CppAD::pow(vars[v_start + i] - ref_v, 2);
 
       if (i < N-1){
-        //fg[0] += 100*CppAD::pow(vars[delta_start + i], 2);
-
         //penalize harsh steering
         if (CppAD::abs(vars[delta_start + i])/25 > 0.05){
           fg[0] += 3000*CppAD::pow(vars[delta_start + i], 2);
@@ -138,15 +139,18 @@ class FG_eval {
         // avoid steering at high speeds
         fg[0] += 1000*CppAD::pow(vars[delta_start + i], 2) * CppAD::pow(vars[v_start+i], 2);
 
+        // if curvature of the road is high, reduce speed. otherwise, go nuts!
         fg[0] += 7000*CppAD::abs(coeffs[2]) * CppAD::pow(vars[v_start+i], 2);
       }
 
+      // dampen actuation volatility
       if (i<N-2){
         fg[0] += 100*CppAD::pow(vars[delta_start + i + 1] - vars[delta_start + i], 2);
         fg[0] += 100*CppAD::pow(vars[a_start + i + 1] - vars[a_start + i], 2);
       }
 
       //Add error of destination to the cost
+      //Not used because the model would take unnecessary measures to lower this
       //fg[0] += 100 * CppAD::pow(vars[psi_start - 1] - f0, 2);
     }
   }
